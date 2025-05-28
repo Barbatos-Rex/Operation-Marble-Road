@@ -7,5 +7,5 @@ import java.io.Serializable;
 @FunctionalInterface
 public interface HttpAction<E extends Serializable> {
 
-    ResponseEntity<E> action(Request<E> request) throws Exception;
+    ResponseEntity<? extends Serializable> action(Request<E> request) throws Exception;
 }

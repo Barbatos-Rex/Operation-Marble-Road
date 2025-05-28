@@ -64,4 +64,8 @@ public interface ResponseEntity<E extends Serializable> extends Serializable {
         }
     }
 
+    static <E extends Serializable> ResponseEntityBuilder<E> builder(Class<E> tClass){
+        return new ResponseEntityBuilder<E>(tClass);
+    }
+
 }

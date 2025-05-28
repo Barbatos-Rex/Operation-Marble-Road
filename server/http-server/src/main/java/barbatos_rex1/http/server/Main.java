@@ -1,5 +1,6 @@
 package barbatos_rex1.http.server;
 
+import barbatos_rex1.http.server.controller.ComTestController;
 import barbatos_rex1.http.server.handle.Router;
 import com.sun.net.httpserver.HttpServer;
 import org.tinylog.Logger;
@@ -11,9 +12,10 @@ import java.util.List;
 public class Main {
     public static void main(String[] args) throws IOException {
         HttpServer httpServer = HttpServer.create(new InetSocketAddress(8080), 0);
-        Router router = new Router(List.of(), httpServer);
+        Router router = new Router(List.of(new ComTestController()), httpServer);
         httpServer = router.registerMethods();
         Logger.info("Starting Server....");
         httpServer.start();
+        Logger.info("Server started! Listening on http://localhost:8080/");
     }
 }

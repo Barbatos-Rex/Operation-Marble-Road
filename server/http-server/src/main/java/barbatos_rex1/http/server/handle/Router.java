@@ -6,6 +6,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import lombok.AllArgsConstructor;
+import org.tinylog.Logger;
 
 import java.io.*;
 import java.util.*;
@@ -21,11 +22,14 @@ public class Router {
 
 
     public HttpServer registerMethods() {
+        Logger.info("Registering Routes...");
         Set<HttpEntry> registeredEntries = new HashSet<>();
         for (Controller controller : controllers) {
+            Logger.info(String.format("Starting Controller \"%s\"", controller.rootMapping()) );
             Map<HttpEntry, HttpAction<?>> actionMap = controller.actionMap();
             for (HttpEntry httpEntry : actionMap.keySet()) {
                 HttpEntry routedEntry = httpEntry.route(controller.rootMapping());
+                Logger.info(String.format("Registering Route %s on %s", httpEntry.getMethod(),routedEntry.getPath()));
                 if (registeredEntries.contains(routedEntry)) {
                     throw new RuntimeException("Something!");
                 }
@@ -39,6 +43,8 @@ public class Router {
 
     private static HttpHandler defaultRoute() {
         return exchange -> {
+            log(exchange);
+            Logger.info("Defaulting Route Response is 403 Forbidden!");
             ResponseEntity<String> responseEntity = new ResponseEntity<>() {
                 @Override
                 public Class<String> entityClass() {
@@ -47,41 +53,55 @@ public class Router {
 
                 @Override
                 public String entity() {
-                    return "Hello World!";
+                    return "Forbidden!";
                 }
 
                 @Override
                 public int code() {
-                    return 200;
+                    return 403;
                 }
             };
             byte[] content = responseEntity.serialize();
-            exchange.sendResponseHeaders(200, content.length);
+            exchange.sendResponseHeaders(403, content.length);
             try (OutputStream os = exchange.getResponseBody()) {
                 os.write(content);
             }
         };
     }
 
-    private HttpHandler buildHandler(HttpMethod method, HttpAction<?> httpAction) {
+    private HttpHandler buildHandler( HttpMethod method, HttpAction<?> httpAction) {
         return (exchange -> {
+            log(exchange);
             handle(exchange, method, httpAction);
         });
     }
 
+    private static void log(HttpExchange exchange) {
+        Logger.info(String.format("Request %s to %s by %s", exchange.getRequestMethod(), exchange.getRequestURI(), exchange.getRemoteAddress()));
+    }
+
     private <E extends Serializable> void handle(HttpExchange exchange, HttpMethod method, HttpAction<E> httpAction) {
-        try (exchange) {
-            Request<E> request = lisiten(exchange, method);
-            ResponseEntity<E> response = httpAction.action(request);
+        try {
+            Request<E> request = listen(exchange, method);
+            ResponseEntity<?> response = httpAction.action(request);
             respond(exchange, response);
         } catch (Exception e) {
+            try {
+                respond(exchange,ResponseEntity.builder(String.class).status(500).body(e.getMessage()));
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
             throw new RuntimeException(e);
         }
     }
 
-    private <E extends Serializable> Request<E> lisiten(HttpExchange exchange, HttpMethod method) throws IOException, ClassNotFoundException {
+    private <E extends Serializable> Request<E> listen(HttpExchange exchange, HttpMethod method) throws IOException, ClassNotFoundException {
         Set<RequestParameter> parameters = fetchRequestParameter(exchange);
         ResponseEntity<E> object = fetchResponseEntity(exchange);
+        if (object == null) {
+            Request<E> request = new Request(method, Serializable.class, null, parameters);
+            return request;
+        }
         Request<E> request = new Request(method, object.entityClass(), object.entity(), parameters);
         return request;
     }
@@ -95,13 +115,16 @@ public class Router {
 
     private <E extends Serializable> ResponseEntity<E> fetchResponseEntity(HttpExchange exchange) throws IOException, ClassNotFoundException {
         InputStream is = exchange.getRequestBody();
-        try (ObjectInputStream ois = new ObjectInputStream(is)) {
-            return (ResponseEntity<E>) ois.readObject();
-        }
+        byte[] content = is.readAllBytes();
+        if (content.length == 0) return null;
+        return (ResponseEntity<E>) new ObjectInputStream(new ByteArrayInputStream(content)).readObject();
     }
 
     private Set<RequestParameter> fetchRequestParameter(HttpExchange exchange) {
         String query = exchange.getRequestURI().getQuery();
+        if (query == null) {
+            return Collections.emptySet();
+        }
         return Arrays.stream(query.split("&")).map(s -> {
             String[] tuple = s.split("=");
             return new RequestParameter(tuple[0], tuple[1]);
