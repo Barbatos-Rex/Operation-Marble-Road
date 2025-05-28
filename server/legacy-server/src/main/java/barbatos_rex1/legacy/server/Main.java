@@ -16,7 +16,7 @@ public class Main {
 
         Scanner sc = new Scanner(System.in);
         System.out.println("RCOMP Server example.");
-        System.out.println("At any time you can execute commands tot the server via terminal input!");
+        System.out.println("At any time you can execute commands to the server via terminal input!");
         System.out.println("Write the command and then press ENTER");
         System.out.println();
         System.out.println("Press ENTER to continue...");
@@ -37,8 +37,15 @@ public class Main {
                 server.stop();
                 toStop = true;
                 break;
+             case "help":
+                 System.out.println("Available commands:");
+                 System.out.println();
+                 System.out.println("help");
+                 System.out.println("stop");
+                 System.out.println();
             default:
                 Logger.info(String.format("Unrecognized Command \"%s\"", command));
+                Logger.info(String.format("Use \"%s\" for help!","help"));
         }
     }
 

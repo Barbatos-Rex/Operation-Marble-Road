@@ -13,6 +13,8 @@ import org.tinylog.Logger;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
@@ -89,7 +91,7 @@ public class Server implements Runnable {
         Logger.info("Stopping server {}", name());
         this.running = false;
         this.serverThread.interrupt();
-        this.serverThread.join();
+        this.serverThread.join(Duration.of(1, ChronoUnit.MINUTES));
     }
 
     private void open() {
